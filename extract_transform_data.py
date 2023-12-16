@@ -150,14 +150,10 @@ def extract_albums_table(artist_id_list):
                                          'album_image_small': album_image_small_list}
                                    )
             albums_table = pd.concat([albums_table, albums_df], ignore_index=True)
-            
         except Exception as e:
             print(f'Error in data extraction for artist_id \'{artist_id}\': {e}')
-    '''# Check artists with 50 albums. We must use offset for those, because the maximum limit is 50
-    group = albums_table.groupby(by='artist_id')['album_id'].count().reset_index()
-    group = group[group['album_id']==50]
-    art_id_list = group['artist_id'].to_list()'''
-    # realease date keep year format
+            
+    # realease date, keep year format
     albums_table['album_release_date'] = pd.to_datetime(albums_table['album_release_date'], format='ISO8601').dt.year
     return albums_table
 
@@ -324,6 +320,41 @@ def album_selection_vol2(albums_table, artists_table):
     return df_albums
 
 
+# exract album popularity
+def extract_album_popularity_table(album_ids):
+    """ This function extracts track popularity given a list of track IDs
+    Args:
+        track_ids (list): A list of tracks IDs
+
+    Returns:
+        pandas.DataFrame: A dataframe containing track popularity and the current date
+    """
+    # acces spotipy
+    sp = get_spotify_client()
+    
+    df_album_pop = pd.DataFrame()
+    request_cnt = 0
+    # we can use a maximum of 20 album ids each time
+    for i in range(0,len(album_ids),20):
+        request_cnt += 1
+        # get 20 albums in each iteration
+        print(f"i = {i}, request_cnt = {request_cnt}")
+        try:
+            album_info = sp.albums(album_ids[i:i+20])
+            # create temporary datafame
+            df_temp = pd.DataFrame(album_info['albums'])[['id', 'popularity']]
+            df_album_pop = pd.concat((df_album_pop, df_temp), axis=0, ignore_index=True)
+        except Exception as e:
+            print(e)
+        # sleep for 5 seconds for every 10 requests
+        if request_cnt % 10 == 0:
+            time.sleep(5)
+    df_album_pop['date'] = datetime.now().date()
+    df_album_pop = df_album_pop.rename({'id': 'album_id',
+                                        'popularity': 'album_popularity'}, axis=1)
+    return df_album_pop
+
+
 # extract tracks VOL1
 def extract_tracks_data(album_ids):
     """This function extracts data for every track from every album
@@ -412,7 +443,7 @@ def extract_track_popularity(track_ids):
             #track_info = [item for item in track_info if item is not None]
             # create temporary datafame
             df_temp = pd.DataFrame(track_info['tracks'])[['id', 'popularity']]
-            df_track_pop = pd.concat((df_track_pop, df_temp), axis=0)
+            df_track_pop = pd.concat((df_track_pop, df_temp), axis=0, ignore_index=True)
         except Exception as e:
             print(e)
         # sleep for 5 seconds for every 10 requests
@@ -451,7 +482,7 @@ def extract_tracks_acoustic_features(track_ids):
             # store in temporary DataFrame
             df_temp = pd.DataFrame(track_features)
             # concat
-            df = pd.concat((df, df_temp), axis=0)
+            df = pd.concat((df, df_temp), axis=0, ignore_index=True)
         except Exception as e:
             print(e)
         # sleep for 5 seconds for every 10 requests
@@ -500,6 +531,15 @@ print(df.head())
 df.to_csv('tracks_table.csv', index=False)'''
 
 
+# test album popularity
+'''albums_table = pd.read_csv('albums_table_not_cleaned.csv')
+album_ids = albums_table['album_id'].to_list()
+df = extract_album_popularity_table(album_ids=album_ids)
+print(df.shape)
+print(df)'''
+
+
+
 
 # creating albums_table_not_cleaned.csv
 '''artists_table = extract_artists_table(artists_list)
@@ -509,6 +549,8 @@ albums_table2 = album_selection_vol2(albums_table1, artists_table)
 print(albums_table2.shape)
 print(albums_table2['original_album_name'].nunique())
 albums_table2.to_csv('albums_table_not_cleaned.csv', index=False)'''
+
+
 
 
 
