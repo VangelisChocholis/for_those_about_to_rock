@@ -2,7 +2,6 @@ import pandas as pd
 from datetime import date
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from spotify_config import config # Token to access spotify
 import re
 import time
 from datetime import datetime
