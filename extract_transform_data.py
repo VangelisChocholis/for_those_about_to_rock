@@ -293,9 +293,21 @@ def album_selection_vol2(albums_table, artists_table):
     # concat release date next to album name. There are albums with the same name ,
     # e.g there are two "Fleetwood Mac" albums, released in different years
     df_albums_names_pop['album_release_date'] = pd.to_datetime(df_albums_names_pop['album_release_date'], format='ISO8601').dt.year
-    df_albums_names_pop['new_album_name'] = df_albums_names_pop['new_album_name'] \
-        + ' ' + '(' + df_albums_names_pop['album_release_date'].astype('string') + ')'
-        
+    # keep both "Fleetwood Mac" albums
+    #df_albums_names_pop['new_album_name'] = df_albums_names_pop['new_album_name'] \
+    #    + ' ' + '(' + df_albums_names_pop['album_release_date'].astype('string') + ')'
+    
+    
+    bool_mask = df_albums_names_pop['album_name'].str.contains("Fleetwood Mac")
+    df_albums_names_pop.loc[bool_mask,'new_album_name'] =  (
+        df_albums_names_pop.loc[bool_mask, 'new_album_name'] +
+        ' (' +
+        df_albums_names_pop.loc[bool_mask, 'album_release_date'].astype('string') +
+            ')'
+                )
+    
+    
+    
     # moving on with album selection
     df_albums_names_pop['album_popularity'] = pd.to_numeric(df_albums_names_pop['album_popularity'],
                                                             errors='coerce')
@@ -319,6 +331,29 @@ def album_selection_vol2(albums_table, artists_table):
     
     return df_albums
 
+
+# remove albums that are Live, but their name does not contain Live in them
+def album_selection_vol3(tracks_table, albums_table):
+    """This function identifies album IDs for live albums where the string "Live" is not present in their names.
+Given the tracks_table, tracks containing the string "- Live" are located. The corresponding albums
+are removed from the albums_table.
+
+    Args:
+        tracks_table (pandas.DataFrame): The output of the album_selection_vo2() function
+        albums_table (pandas.DataFrame): The output of extract_tracks_data() function
+
+    Returns:
+        pandas.DataFrame: The final albums_table 
+    """
+    alb_ids_to_remove = (tracks_table[tracks_table['track_name']
+                                     .str
+                                     .contains("- live", case=False)]['album_id']
+                        .unique()
+                        )
+    albums_df = albums_table[~albums_table['album_id'].isin(alb_ids_to_remove)]
+    return albums_df                          
+    
+    
 
 # exract album popularity
 def extract_album_popularity_table(album_ids):
@@ -355,7 +390,7 @@ def extract_album_popularity_table(album_ids):
     return df_album_pop
 
 
-# extract tracks VOL1
+# extract tracks
 def extract_tracks_data(album_ids):
     """This function extracts data for every track from every album
     
@@ -492,6 +527,25 @@ def extract_tracks_acoustic_features(track_ids):
     return df
     
 
+# clean tracks table
+def clean_tracks_table(tracks_table):
+    """_summary_
+
+    Args:
+        tracks_table (_type_): _description_
+    """
+    pass
+
+
+# clean albums table
+def clean_albums_table(albums_table):
+    """_summary_
+
+    Args:
+        albums_table (_type_): _description_
+    """
+    pass
+
 
 
 
@@ -502,6 +556,20 @@ artists_list = ['Pink Floyd', 'The Doors', 'Led Zeppelin', 'Queen', 'Deep Purple
                'Guns N\'Roses', 'Pixies', 'The Police', 'ZZ Top', 'Aerosmith', 'The Who', 
                'Bon Jovi', 'Lynyrd Skynyrd', 'Scorpions', 'U2', 'David Bowie',
                 'Jimi Hendrix', 'Eric Clapton', 'Red Hot Chili Peppers']
+
+# extracting final albums_table
+
+# get artists
+artists_table = extract_artists_table(artists_list)
+# albums_table initial form
+albums_table = extract_albums_table(artist_id_list=artists_table['artist_id'].to_list())
+# album selection by removing live, demo, deluxe versions
+albums_table = album_selection_vol1(albums_table)
+albums_table = album_selection_vol2(albums_table=albums_table, artists_table=artists_table)
+tracks_table = extract_tracks_data(album_ids=albums_table['album_id'].to_list())
+# remove live albums where the string "Live" is not present in their names
+albums_table = album_selection_vol3(tracks_table=tracks_table, albums_table=albums_table)
+albums_table.to_csv("albums_table.csv", index=False)
 
 
 
