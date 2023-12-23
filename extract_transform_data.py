@@ -43,7 +43,6 @@ def extract_artists_table(artists_list):
     
     artist_id_list = []
     artist_name_list = []
-    artist_followers_list = []
     for artist in artists_list:
         try:
             # Search for artist
@@ -51,14 +50,34 @@ def extract_artists_table(artists_list):
             # Get artist ID, name, followers 
             artist_id_list.append(results['artists']['items'][0]['id'])
             artist_name_list.append(results['artists']['items'][0]['name'])
-            artist_followers_list.append(results['artists']['items'][0]['followers']['total'])
         except Exception as e:
             print(f'Error in data extraction for artist \'{artist}\': {e}')
     # make DataFrame
     artists_table = pd.DataFrame(data={'artist_id': artist_id_list,
                                       'artist_name': artist_name_list,
-                                      'artist_followers': artist_followers_list})
+                                      })
     return artists_table
+
+
+# extract artist followers
+def extract_artists_followers(artist_ids):
+    sp = get_spotify_client()
+
+    data = {'artist_id': [], 'followers': []}
+    for artist_id in artist_ids:
+        # Get artist details including followers
+        artist = sp.artist(artist_id)
+        followers = artist['followers']['total']
+
+        # Store the data
+        data['artist_id'].append(artist_id)
+        data['followers'].append(followers)
+
+    # Create a DataFrame from the collected data
+    df = pd.DataFrame(data)
+    # add date
+    df['date'] = date.today()
+    return df
 
 
 # artists_popularity_table
@@ -320,7 +339,7 @@ def album_selection_vol2(albums_table, artists_table):
     
     # select the most popular album version
     df_albums = (filtered_albums[filtered_albums['album_id'].isin(album_ids)]
-                 .drop(columns=['artist_name', 'artist_followers'])
+                 .drop(columns=['artist_name'])
     )
     # column with original album name
     df_albums['original_album_name'] = df_albums['album_name'].apply(lambda x: 
@@ -343,7 +362,7 @@ are removed from the albums_table.
         albums_table (pandas.DataFrame): The output of extract_tracks_data() function
 
     Returns:
-        pandas.DataFrame: The final albums_table 
+        tuple of pandas.DataFrame: The final albums_table and tracks_table
     """
     alb_ids_to_remove = (tracks_table[tracks_table['track_name']
                                      .str
@@ -351,7 +370,8 @@ are removed from the albums_table.
                         .unique()
                         )
     albums_df = albums_table[~albums_table['album_id'].isin(alb_ids_to_remove)]
-    return albums_df                          
+    tracks_df = tracks_table[~tracks_table['album_id'].isin(alb_ids_to_remove)]
+    return albums_df, tracks_df                        
     
     
 
@@ -453,6 +473,7 @@ def extract_tracks_data(album_ids):
     return tracks_df
 
 
+
 # get track popularity
 def extract_track_popularity(track_ids):
     """ This function extracts track popularity given a list of track IDs
@@ -499,6 +520,7 @@ def extract_tracks_acoustic_features(track_ids):
 
     Returns:
         pandas.DataFrame: dataframe containing acoustic features for each track
+        
     """
     # acces spotipy
     sp = get_spotify_client()
@@ -528,23 +550,72 @@ def extract_tracks_acoustic_features(track_ids):
     
 
 # clean tracks table
-def clean_tracks_table(tracks_table):
-    """_summary_
+def final_trans_tracks_table(tracks_table):
+    """
+    Final transformation of tracks' static data before loading into the database.
 
     Args:
-        tracks_table (_type_): _description_
+        tracks_table (pandas.DataFrame): tracks_table 
+        
+    Rerutns:
+        pandas.DataFrame: Tracks' static data table
+        
     """
-    pass
+    def ms_to_minutes_seconds(duration):
+        duration_tuple = divmod(duration // 1000, 60)
+        duration_display = f"{duration_tuple[0]}:{duration_tuple[1]}"
+        return duration_display
+    
+    tracks_table['track_duration_display'] = tracks_table['track_duration_ms'].apply(ms_to_minutes_seconds)
+    return tracks_table
 
 
 # clean albums table
-def clean_albums_table(albums_table):
-    """_summary_
+def final_trans_albums_table(albums_table):
+    """Final transformation of albums' static data before loading into the database.
 
     Args:
-        albums_table (_type_): _description_
+        tracks_table (pandas.DataFrame): albums_table 
+        
+    Rerutns:
+        pandas.DataFrame: Albums' static data table
+        
     """
-    pass
+    # keep the original name by removin [...]
+    albums_table['original_album_name'] = albums_table['original_album_name'].apply(lambda x: x.split('[')[0].strip())
+
+
+
+# Extract and Transform static data
+def get_static_tables(artists_list):
+    """This function extracts all static tables, i.e tables that do not get updated daily.
+
+    Args:
+        artists_list (list): A list of artists.
+
+    Returns:
+        tuple: ever static table in pd.DataFrame form.
+        
+         
+    """
+    # get artists
+    artists_table = extract_artists_table(artists_list)
+    # albums_table initial form
+    albums_table = extract_albums_table(artist_id_list=artists_table['artist_id'].to_list())
+    # album selection by removing live, demo, deluxe versions
+    albums_table = album_selection_vol1(albums_table)
+    albums_table = album_selection_vol2(albums_table=albums_table, artists_table=artists_table)
+    tracks_table = extract_tracks_data(album_ids=albums_table['album_id'].to_list())
+    # remove live albums where the string "Live" is not present in their names
+    # get final track_table as well
+    albums_table, tracks_table = album_selection_vol3(tracks_table=tracks_table, albums_table=albums_table)
+    # get acoustic features 
+    tracks_features_table = extract_tracks_acoustic_features(track_ids=tracks_table['track_id'].to_list())
+    # apply final transformations
+    albums_table = final_trans_albums_table(albums_table)
+    tracks_table = final_trans_tracks_table(tracks_table)
+    # return every static table
+    return artists_table, albums_table, tracks_table, tracks_features_table
 
 
 
@@ -557,175 +628,14 @@ artists_list = ['Pink Floyd', 'The Doors', 'Led Zeppelin', 'Queen', 'Deep Purple
                'Bon Jovi', 'Lynyrd Skynyrd', 'Scorpions', 'U2', 'David Bowie',
                 'Jimi Hendrix', 'Eric Clapton', 'Red Hot Chili Peppers']
 
-# extracting final albums_table
 
-# get artists
-artists_table = extract_artists_table(artists_list)
-# albums_table initial form
-albums_table = extract_albums_table(artist_id_list=artists_table['artist_id'].to_list())
-# album selection by removing live, demo, deluxe versions
-albums_table = album_selection_vol1(albums_table)
-albums_table = album_selection_vol2(albums_table=albums_table, artists_table=artists_table)
-tracks_table = extract_tracks_data(album_ids=albums_table['album_id'].to_list())
-# remove live albums where the string "Live" is not present in their names
-albums_table = album_selection_vol3(tracks_table=tracks_table, albums_table=albums_table)
+
+'''artists_table, albums_table, tracks_table, tracks_features_table = get_static_tables(artists_list=artists_list)
+artists_table.to_csv("artists_table.csv", index=False)
 albums_table.to_csv("albums_table.csv", index=False)
-
-
-
-
-# extract acoustic features
-'''tracks_table = pd.read_csv('tracks_data_vol1.csv')
-track_ids = tracks_table['track_id'].to_list()
-df = extract_tracks_acoustic_features(track_ids)
-print(df.shape[0], len(track_ids))
-df.to_csv("acoustic_features_table.csv", index=False)
-print(df)'''
-
-
-
-# Testing track data extraction
-'''albums_table = pd.read_csv('albums_table_not_cleaned.csv')
-album_ids = albums_table['album_id'].to_list()
-df = extract_tracks_data(album_ids)
-print(df)
-df.to_csv("tracks_data_vol1.csv", index=False)'''
-
-
-'''albums_table = pd.read_csv('albums_table_not_cleaned.csv')
-album_ids = albums_table['album_id'].to_list()
-df = extract_tracks_data(album_ids)
-print(df.head())
-df.to_csv('tracks_table.csv', index=False)'''
-
-
-# test album popularity
-'''albums_table = pd.read_csv('albums_table_not_cleaned.csv')
-album_ids = albums_table['album_id'].to_list()
-df = extract_album_popularity_table(album_ids=album_ids)
-print(df.shape)
-print(df)'''
-
-
-
-
-# creating albums_table_not_cleaned.csv
-'''artists_table = extract_artists_table(artists_list)
-artist_id_list = extract_artists_table(artists_list)['artist_id'].to_list()
-albums_table1 = album_selection_vol1(extract_albums_table(artist_id_list))
-albums_table2 = album_selection_vol2(albums_table1, artists_table)
-print(albums_table2.shape)
-print(albums_table2['original_album_name'].nunique())
-albums_table2.to_csv('albums_table_not_cleaned.csv', index=False)'''
-
-
-
-
-
-# testing album image
-'''artists_table = extract_artists_table(artists_list)
-artist_id_list = extract_artists_table(artists_list)['artist_id'].to_list()[0:5]
-df = extract_albums_table(artist_id_list=artist_id_list)
-print(df.columns)
-print(df['album_image_large'][0])'''
-
-
-
-# Testimg ablum_selection_vol1 and ablum_selection_vol2
-'''artists_table = extract_artists_table(artists_list)
-artist_id_list = extract_artists_table(artists_list)['artist_id'].to_list()
-albums_table = album_selection_vol1(extract_albums_table(artist_id_list))
-
-df_albums = album_selection_vol1(albums_table)
-df_albums_2 = album_selection_vol2(df_albums, artists_table)
-
-df_albums['new_album_name'] = df_albums['album_name'].apply(lambda x: 
-                                            str(
-                                                x.split('(')[0].strip()
-                                            )
-                                        )
-
-# albums after album_selecton_vol1
-print("abums after selction_vol1")
-print(df_albums.shape)
-# unique values
-print("unique album names after vol1")
-print(df_albums['new_album_name'].nunique())
-
-
-df_albums_2['new_album_name'] = df_albums_2['album_name'].apply(lambda x: 
-                                            str(
-                                                x.split('(')[0].strip()
-                                            )
-                                        )
-# albums after album_selecton_vol2
-print("abums after selction_vol2")
-print(df_albums_2.shape)
-# unique values
-print("unique album names after vol2")
-print(df_albums_2['new_album_name'].nunique())
-df_albums_2.to_csv('albums_table_uncleaned.csv', index=False)'''
-
-
-
-
-
-# testing reg exp
-'''pattern =  r'\bdemos\b(?![\w\'()])'
-
-text = "The 'Mercury' demos (with John 'Hutch' Hutchinson)"
-if re.search(pattern, text):
-    print("Match found!")
-else:
-    print("No match found.")'''
-    
-
-
-
-
-# Sample data
-data = {'album_name': [
-    "This is a live performance!",
-    "The band is playing live.",
-    "{live} concert",
-    "Demolized",
-    "The wall Demo",
-    "the Demon",
-    "The wall remix",
-    "the dark side of the moon demo",
-    "Live music",
-    "Hunky Dory",
-    "The Dark Side of the moon",
-    "The Doors",
-    "LA Woman",
-    "This is not delivered",
-    "nine lives",
-    "lived long",
-    "the dark side of the moon (Live at Wembley)",
-    "Live at Amstedam", 
-    "The Wall",
-    "Liverthel",
-    "Remixed feelings",
-    "Perfect strangters (Remix)",
-    "Demos",
-    "The unreleaseh demos",
-    "Democracy Chinese",
-    "Demosercdenio",
-    "DemosA",
-    'the Wall deluxe',
-    'Fleetwood Mac',
-    'Fleet Wood Max (Deluxe)',
-    'animals (Deluxe edition)',
-    'deluxed'
-]}
-
+tracks_table.to_csv("tracks_table.csv", index=False)
+tracks_features_table.to_csv("tracks_features_table.csv", index=False)
 '''
-df = pd.DataFrame(data)
-df_ = album_selection_vol1(df)
-print(df_)'''
-
-
-
 
 
 
