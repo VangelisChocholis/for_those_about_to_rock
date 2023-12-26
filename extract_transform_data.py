@@ -583,6 +583,7 @@ def final_trans_albums_table(albums_table):
     """
     # keep the original name by removin [...]
     albums_table['original_album_name'] = albums_table['original_album_name'].apply(lambda x: x.split('[')[0].strip())
+    return albums_table
 
 
 
@@ -626,18 +627,16 @@ artists_list = ['Pink Floyd', 'The Doors', 'Led Zeppelin', 'Queen', 'Deep Purple
                'The Rolling Stones', 'AC/DC', 'Fleetwood Mac', 'The Beatles', 'Dire Straits', 'Nirvana',
                'Guns N\'Roses', 'Pixies', 'The Police', 'ZZ Top', 'Aerosmith', 'The Who', 
                'Bon Jovi', 'Lynyrd Skynyrd', 'Scorpions', 'U2', 'David Bowie',
-                'Jimi Hendrix', 'Eric Clapton', 'Red Hot Chili Peppers']
+                'Jimi Hendrix', 'Eric Clapton', 'Red Hot Chili Peppers', 'Eagles', 'The Animals',
+                'R.E.M.', 'Radiohead', 'The Beach Boys']
 
 
-
-'''artists_table, albums_table, tracks_table, tracks_features_table = get_static_tables(artists_list=artists_list)
+# get static data to csv
+artists_table, albums_table, tracks_table, tracks_features_table = get_static_tables(artists_list=artists_list)
 artists_table.to_csv("artists_table.csv", index=False)
 albums_table.to_csv("albums_table.csv", index=False)
 tracks_table.to_csv("tracks_table.csv", index=False)
 tracks_features_table.to_csv("tracks_features_table.csv", index=False)
-'''
-
-
 
 
 
