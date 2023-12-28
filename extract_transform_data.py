@@ -60,7 +60,7 @@ def extract_artists_table(artists_list):
 
 
 # extract artist followers
-def extract_artists_followers(artist_ids):
+def extract_artists_followers_table(artist_ids):
     sp = get_spotify_client()
 
     data = {'artist_id': [], 'followers': []}
@@ -81,35 +81,35 @@ def extract_artists_followers(artist_ids):
 
 
 # artists_popularity_table
-def extract_artists_popularity_table(artists_list):
-    """Takes an artist list as an input and extracts artist popularity from Spotify API
-    Returns a pandas DataFrame, containing artist popularity and the current date.
+def extract_artists_popularity_table(artist_ids):
+    """Takes a list of artist IDs as input and extracts artist popularity from Spotify API.
+    Returns a pandas DataFrame containing artist popularity and the current date.
 
     Args:
-        artists_list (list): A list of artist names.
+        artist_ids (list): A list of Spotify artist IDs.
 
     Returns:
-        pandas.DataFrame: dataframe containing artist id, popularity, and the current date.
+        pandas.DataFrame: DataFrame containing artist ID, popularity, and the current date.
     """
-    # acces spotipy
+    # Access spotipy
     sp = get_spotify_client()
     
-    artist_id_list = []
     artist_popularity_list = []
-    for artist in artists_list:
+    for artist_id in artist_ids:
         try:
-            # Search for artist
-            results = sp.search(q=artist, type='artist')
-            # Get artist ID, name, followers 
-            artist_id_list.append(results['artists']['items'][0]['id'])
-            artist_popularity_list.append(results['artists']['items'][0]['popularity'])
+            # Get artist information
+            artist_info = sp.artist(artist_id)
+            artist_popularity_list.append(artist_info['popularity'])
         except Exception as e:
-            print(f'Error in data extraction for artist \'{artist}\': {e}')
-    # make DataFrame
-    artists_popularity_table = pd.DataFrame(data={'date': date.today(), 
-                                       'artist_id': artist_id_list,
-                                       'artist_popularity': artist_popularity_list}
-                                )
+            print(f'Error in data extraction for artist ID \'{artist_id}\': {e}')
+
+    # Make DataFrame
+    artists_popularity_table = pd.DataFrame(data={
+        'date': date.today(),
+        'artist_id': artist_ids,
+        'artist_popularity': artist_popularity_list
+    })
+
     return artists_popularity_table
 
 
@@ -373,7 +373,7 @@ are removed from the albums_table.
     
 
 # exract album popularity
-def extract_album_popularity_table(album_ids):
+def extract_albums_popularity_table(album_ids):
     """ This function extracts track popularity given a list of track IDs
     Args:
         track_ids (list): A list of tracks IDs
@@ -390,7 +390,7 @@ def extract_album_popularity_table(album_ids):
     for i in range(0,len(album_ids),20):
         request_cnt += 1
         # get 20 albums in each iteration
-        print(f"i = {i}, request_cnt = {request_cnt}")
+        #print(f"i = {i}, request_cnt = {request_cnt}")
         try:
             album_info = sp.albums(album_ids[i:i+20])
             # create temporary datafame
@@ -472,7 +472,7 @@ def extract_tracks_data(album_ids):
 
 
 # get track popularity
-def extract_track_popularity(track_ids):
+def extract_tracks_popularity_table(track_ids):
     """ This function extracts track popularity given a list of track IDs
     Args:
         track_ids (list): A list of tracks IDs
@@ -489,7 +489,7 @@ def extract_track_popularity(track_ids):
     for i in range(0,len(track_ids),50):
         request_cnt += 1
         # get 50 tracks in each iteration
-        print(f"i = {i}, request_cnt = {request_cnt}")
+        #print(f"i = {i}, request_cnt = {request_cnt}")
         try:
             track_info = sp.tracks(track_ids[i:i+50])
             # make sure that there is not None
@@ -641,6 +641,8 @@ artists_table.to_csv("artists_table.csv", index=False)
 albums_table.to_csv("albums_table.csv", index=False)
 tracks_table.to_csv("tracks_table.csv", index=False)
 tracks_features_table.to_csv("tracks_features_table.csv", index=False)'''
+
+
 
 
 
