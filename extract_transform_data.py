@@ -95,7 +95,6 @@ def extract_artists_popularity_table(artists_list):
     sp = get_spotify_client()
     
     artist_id_list = []
-    artist_name_list = []
     artist_popularity_list = []
     for artist in artists_list:
         try:
@@ -103,14 +102,12 @@ def extract_artists_popularity_table(artists_list):
             results = sp.search(q=artist, type='artist')
             # Get artist ID, name, followers 
             artist_id_list.append(results['artists']['items'][0]['id'])
-            artist_name_list.append(results['artists']['items'][0]['name'])
             artist_popularity_list.append(results['artists']['items'][0]['popularity'])
         except Exception as e:
             print(f'Error in data extraction for artist \'{artist}\': {e}')
     # make DataFrame
     artists_popularity_table = pd.DataFrame(data={'date': date.today(), 
-                                       'artist_id': artist_id_list, 
-                                       'artist_name': artist_name_list, 
+                                       'artist_id': artist_id_list,
                                        'artist_popularity': artist_popularity_list}
                                 )
     return artists_popularity_table
@@ -565,8 +562,10 @@ def final_trans_tracks_table(tracks_table):
         duration_tuple = divmod(duration // 1000, 60)
         duration_display = f"{duration_tuple[0]}:{duration_tuple[1]}"
         return duration_display
-    
+    # apply function
     tracks_table['track_duration_display'] = tracks_table['track_duration_ms'].apply(ms_to_minutes_seconds)
+    # clean track_name column
+    tracks_table['original_track_name'] = tracks_table['track_name'].apply(lambda x: x.split('-')[0].strip())
     return tracks_table
 
 
@@ -585,6 +584,10 @@ def final_trans_albums_table(albums_table):
     albums_table['original_album_name'] = albums_table['original_album_name'].apply(lambda x: x.split('[')[0].strip())
     return albums_table
 
+
+def final_trans_tracks_features_table(tracks_features_table):
+    tracks_features_table = tracks_features_table.rename(columns={'key': 'track_key'})
+    return tracks_features_table
 
 
 # Extract and Transform static data
@@ -615,6 +618,7 @@ def get_static_tables(artists_list):
     # apply final transformations
     albums_table = final_trans_albums_table(albums_table)
     tracks_table = final_trans_tracks_table(tracks_table)
+    tracks_features_table = final_trans_tracks_features_table(tracks_features_table)
     # return every static table
     return artists_table, albums_table, tracks_table, tracks_features_table
 
@@ -632,11 +636,11 @@ artists_list = ['Pink Floyd', 'The Doors', 'Led Zeppelin', 'Queen', 'Deep Purple
 
 
 # get static data to csv
-artists_table, albums_table, tracks_table, tracks_features_table = get_static_tables(artists_list=artists_list)
+'''artists_table, albums_table, tracks_table, tracks_features_table = get_static_tables(artists_list=artists_list)
 artists_table.to_csv("artists_table.csv", index=False)
 albums_table.to_csv("albums_table.csv", index=False)
 tracks_table.to_csv("tracks_table.csv", index=False)
-tracks_features_table.to_csv("tracks_features_table.csv", index=False)
+tracks_features_table.to_csv("tracks_features_table.csv", index=False)'''
 
 
 
