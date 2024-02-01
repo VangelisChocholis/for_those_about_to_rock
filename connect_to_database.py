@@ -54,8 +54,7 @@ def database_connection(connection_string=connection_string, max_retries=10, ret
             #logging.error(f"An exception occurred: connect with DB failed (Attempt {attempts + 1}/{max_retries})", exc_info=False)
             attempts += 1
             time.sleep(retry_delay)
-
-    print(f"Failed to connect to the database after {max_retries} attempts. Exception raised: {e}")
+            print(f"Failed to connect to the database. Exception raised: {e}")
     return None
 
 
