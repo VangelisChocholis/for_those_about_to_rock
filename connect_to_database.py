@@ -97,8 +97,23 @@ def get_data_from_db(sql, engine=set_engine()):
     """
     try:
         data = pd.read_sql(sql, engine)
+        engine.dispose()
         return data
     except Exception as e:
         print(f"An exception occurred: SQL query failed. Exception raised: {e}")
+        engine.dispose()
         return None
     
+    
+# track time to run the query
+start_time = time.time()
+tracks_sql = '''SELECT  *
+  FROM tracks_table t JOIN albums_table a ON t.album_id=a.album_id
+  JOIN artists_table ar ON a.artist_id = ar.artist_id
+  JOIN tracks_features_table tf ON t.track_id = tf.track_id
+  JOIN tracks_popularity_table tp ON t.track_id = tp.track_id; 
+'''
+data = get_data_from_db(tracks_sql)
+print(data.shape)
+end_time = time.time()
+print(f"Time to run the query: {end_time - start_time} seconds")
