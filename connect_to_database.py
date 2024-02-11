@@ -7,34 +7,38 @@ import os
 import time
 
 
-# connect to database
-# specify server and DB name
-server = "spotifyrockdb.database.windows.net"
-database = "SpotifyRockDB"
 
-# load credentials
-try:
-    load_dotenv()
-    password = os.getenv("PASSWORD")
-    #password = os.environ["PASSWORD"]
-    # set connection string
-    connection_string = (
-    'Driver={ODBC Driver 18 for SQL Server};'
-    'Server=tcp:' + server + ',1433;'
-    'Database=' + database + ';'
-    'Uid=sqladmin;'
-    'Pwd=' + password + ';'
-    'Encrypt=yes;'
-    'TrustServerCertificate=no;'
-    'Connection Timeout=600;')
-    
-except Exception as e:
-    print("An exception occurred: Database PASSWORD not found")
+def set_connection_string():
+    # connect to database
+    # specify server and DB name
+    server = "spotifyrockdb.database.windows.net"
+    database = "SpotifyRockDB"
+
+    # load credentials
+    try:
+        load_dotenv()
+        password = os.getenv("PASSWORD")
+        #password = os.environ["PASSWORD"]
+        # set connection string
+        connection_string = (
+        'Driver={ODBC Driver 18 for SQL Server};'
+        'Server=tcp:' + server + ',1433;'
+        'Database=' + database + ';'
+        'Uid=sqladmin;'
+        'Pwd=' + password + ';'
+        'Encrypt=yes;'
+        'TrustServerCertificate=no;'
+        'Connection Timeout=600;')
+        return connection_string
+        
+    except Exception as e:
+        print("An exception occurred: Database PASSWORD not found")
+        return None
                                                                     
 
 
 # connect to database using pyodbc (without SQLAlchemy)
-def database_connection(connection_string=connection_string, max_retries=10, retry_delay=3):
+def database_connection(connection_string, max_retries=10, retry_delay=3):
     """Connect to SQL Server using pyodbc
 
     Args:
@@ -59,7 +63,7 @@ def database_connection(connection_string=connection_string, max_retries=10, ret
 
 
 # set SQLAlchemy engine
-def set_engine(conn=database_connection(), max_retries=5, retry_delay=3):
+def set_engine(conn, max_retries=5, retry_delay=3):
     """Creates a SQLAlchemy engine using a preexisting connection
 
     Args:
@@ -85,7 +89,7 @@ def set_engine(conn=database_connection(), max_retries=5, retry_delay=3):
 
 
 
-def get_data_from_db(sql, engine=set_engine()):
+def get_data_from_db(sql, engine):
     """Get data from database using a SQL query
 
     Args:
@@ -105,15 +109,36 @@ def get_data_from_db(sql, engine=set_engine()):
         return None
     
     
-# track time to run the query
-start_time = time.time()
-tracks_sql = '''SELECT  *
-  FROM tracks_table t JOIN albums_table a ON t.album_id=a.album_id
-  JOIN artists_table ar ON a.artist_id = ar.artist_id
-  JOIN tracks_features_table tf ON t.track_id = tf.track_id
-  JOIN tracks_popularity_table tp ON t.track_id = tp.track_id; 
+
+# test code
+
+# SQL query to get the tracks with the current popularity
+sql = '''
+  SELECT  *
+    FROM tracks_table t JOIN albums_table a ON t.album_id=a.album_id
+    JOIN artists_table ar ON a.artist_id = ar.artist_id
+    JOIN tracks_features_table tf ON t.track_id = tf.track_id
+    JOIN tracks_popularity_table tp ON t.track_id = tp.track_id
+    WHERE tp.date = (SELECT MAX(date) FROM tracks_popularity_table);
 '''
-data = get_data_from_db(tracks_sql)
-print(data.shape)
+
+
+
+'''# get connection string
+connection_string = set_connection_string()
+# connect to database
+conn = database_connection(connection_string)
+# set SQLAlchemy engine
+engine = set_engine(conn)
+
+# get data from database and measure time for query execution
+start_time = time.time()
+
+data = get_data_from_db(sql, engine)
+
 end_time = time.time()
-print(f"Time to run the query: {end_time - start_time} seconds")
+print(f"Time to execute SQL query: {end_time - start_time} seconds")'''
+
+
+
+
